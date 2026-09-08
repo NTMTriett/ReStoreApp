@@ -1,0 +1,218 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:tradeupapp/constants/app_colors.dart';
+import 'package:tradeupapp/screens/main_app/profile/about_us/about_us.dart';
+import 'package:tradeupapp/screens/main_app/profile/purchase_history/purchase_history.dart';
+import 'package:tradeupapp/screens/main_app/profile/change_password/change_password.dart';
+import 'package:tradeupapp/screens/main_app/profile/controller/profile_controller.dart';
+import 'package:tradeupapp/screens/main_app/profile/sales_history/sales_history.dart';
+import 'package:tradeupapp/screens/main_app/profile/view_offer/view_offer.dart';
+import 'package:tradeupapp/screens/main_app/profile/report/report.dart';
+import 'package:tradeupapp/screens/main_app/profile/save_product/save_product.dart';
+import 'package:tradeupapp/widgets/general/general_custom_dialog.dart';
+import 'package:tradeupapp/widgets/general/general_loading_screen.dart';
+import 'package:tradeupapp/widgets/general/general_snackbar_helper.dart';
+import 'package:tradeupapp/widgets/main_app_widgets/user_profile_widgets/user_profile_appbar_custom_widget.dart';
+import 'package:tradeupapp/widgets/main_app_widgets/user_profile_widgets/user_profile_business_mode_widget.dart';
+import 'package:tradeupapp/widgets/main_app_widgets/user_profile_widgets/user_profile_category_func_widget.dart';
+import 'package:tradeupapp/widgets/main_app_widgets/user_profile_widgets/user_profile_category_function_widget.dart';
+
+class Profile extends StatefulWidget {
+  const Profile({super.key});
+
+  @override
+  State<Profile> createState() => _ProfileState();
+}
+
+class _ProfileState extends State<Profile> {
+  final profileController = Get.put(ProfileController());
+
+  void _handleBusinessMode(bool value) {
+    if (value) {
+      CustomDialogGeneral.show(
+        context,
+        'Business Mode Enabled',
+        'You are now in Business Mode.\nYour profile is visible to other users as a seller.',
+        () {
+          profileController.updateUserRole(2);
+          SnackbarHelperGeneral.showCustomSnackBar(
+            'You are now in Business Mode',
+            backgroundColor: Colors.green,
+          );
+        },
+        numberOfButton: 2,
+      );
+    } else {
+      CustomDialogGeneral.show(
+        context,
+        'Business Mode Disabled',
+        'You have exited Business Mode.',
+        () {
+          profileController.updateUserRole(1);
+          SnackbarHelperGeneral.showCustomSnackBar(
+            'You have exited Business Mode',
+            backgroundColor: Colors.red,
+          );
+        },
+        numberOfButton: 2,
+        image: 'warning.jpg',
+      );
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await profileController.listenUser();
+      await profileController.loadUser();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    profileController.context = context;
+    return Obx(() {
+      //1. Kiểm tra trạng thái Loading
+      if (profileController.isLoading.value) {
+        return const Scaffold(
+          body: LoadingScreenGeneral(message: "Loading Profile Screen..."),
+        );
+      }
+
+      if (profileController.user.value == null) {
+        return const Scaffold(
+          body: Center(
+            child: Text(
+              'Cannot load user data!',
+              style: TextStyle(
+                color: AppColors.header,
+                fontFamily: 'Roboto-Black',
+                fontSize: 20,
+              ),
+            ),
+          ),
+        );
+      }
+
+      final user = profileController.user.value!;
+
+      return SafeArea(
+        child: Scaffold(
+          resizeToAvoidBottomInset: false,
+          backgroundColor: Colors.white,
+          appBar: AppbarCustomUserProfile(
+            fullName: user.fullName,
+            address: user.address,
+            imageURL: user.avtURL,
+            onEditProfile: () {
+              profileController.loadUser();
+            },
+          ),
+          body: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 10),
+                CategoryFuncProfile(
+                  title: 'Business',
+                  children: [
+                    Obx(
+                      () => BusinessModeUserProfile(
+                        label: 'Business mode',
+                        icon: Icons.business_center_outlined,
+                        value: profileController.isBusinessMode.value,
+                        onChanged: _handleBusinessMode,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 7),
+                // Activity Section
+                CategoryFuncProfile(
+                  title: 'Activity',
+                  children: [
+                    CategoryFuncUserProfile(
+                      onTap: () {
+                        Get.to(BuyHistory());
+                      },
+                      icon: Icons.history,
+                      label: 'Purchase history',
+                    ),
+
+                    user.role == 2
+                        ? CategoryFuncUserProfile(
+                            onTap: () {
+                              Get.to(SalesHistory());
+                            },
+                            icon: Icons.history,
+                            label: 'Sales history',
+                          )
+                        : SizedBox(),
+
+                    CategoryFuncUserProfile(
+                      onTap: () {
+                        profileController.navigatorFunc(const SaveProduct());
+                      },
+                      icon: Icons.bookmark_border_outlined,
+                      label: 'Save product',
+                    ),
+
+                    CategoryFuncUserProfile(
+                      onTap: () {
+                        profileController.navigatorFunc(ViewOffer());
+                      },
+                      icon: Icons.date_range_outlined,
+                      label: 'View Offer',
+                    ),
+
+                    CategoryFuncUserProfile(
+                      onTap: () =>
+                          profileController.navigatorFunc(const Report()),
+                      icon: Icons.report_outlined,
+                      label: 'Report',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 7),
+
+                // Account Section
+                CategoryFuncProfile(
+                  title: 'Account',
+                  children: [
+                    CategoryFuncUserProfile(
+                      onTap: () => profileController.navigatorFunc(
+                        const ChangePassword(),
+                      ),
+                      icon: Icons.change_circle_outlined,
+                      label: 'Change password',
+                    ),
+                    CategoryFuncUserProfile(
+                      onTap: profileController.handleLogout,
+                      icon: Icons.logout,
+                      label: 'Log out',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 7),
+                // Help Section
+                CategoryFuncProfile(
+                  title: 'Help & Support',
+                  children: [
+                    CategoryFuncUserProfile(
+                      onTap: () =>
+                          profileController.navigatorFunc(const AboutUs()),
+                      icon: Icons.info_outline_rounded,
+                      label: 'About us',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+}
